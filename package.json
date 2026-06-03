@@ -1,6 +1,6 @@
 {
   "name": "apibolt",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "Bootstrap a production-ready Node.js/Express backend in under 30 seconds",
   "main": "dist/bin/index.js",
   "type": "module",
@@ -30,7 +30,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@inquirer/prompts": "^5.0.4",
+    "@inquirer/prompts": "^8.5.2",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "handlebars": "^4.7.8",
