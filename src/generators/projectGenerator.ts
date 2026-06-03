@@ -100,6 +100,9 @@ export async function generateProject(answers: ProjectAnswers): Promise<void> {
     if (answers.validation !== 'none') {
       filesToGenerate.push({ src: `${langFolder}/src/middlewares/validation.middleware.${ext}.hbs`, dest: `src/middlewares/validation.middleware.${ext}` });
     }
+    if (answers.validation === 'zod') {
+      filesToGenerate.push({ src: `${langFolder}/src/zod/auth.validation.${ext}.hbs`, dest: `src/zod/auth.validation.${ext}` });
+    }
     
     // Testing
     if (answers.testing) {

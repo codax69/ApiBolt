@@ -1,6 +1,6 @@
 {
   "name": "apibolt",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Bootstrap a production-ready Node.js/Express backend in under 30 seconds",
   "main": "dist/bin/index.js",
   "type": "module",
