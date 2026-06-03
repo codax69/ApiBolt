@@ -1,0 +1,47 @@
+import { ApiError } from '../utils/ApiError.js';
+
+{{#if (eq validation "zod")}}
+export const validate = (schema) => (req, res, next) => {
+  try {
+    const parsed = schema.parse({
+      body: req.body,
+      query: req.query,
+      params: req.params,
+    });
+    // Assign back to sanitize
+    if (parsed.body) req.body = parsed.body;
+    if (parsed.query) req.query = parsed.query;
+    if (parsed.params) req.params = parsed.params;
+    return next();
+  } catch (error) {
+    const errorMessages = error.errors ? error.errors.map((err) => `${err.path.join('.')}: ${err.message}`) : [error.message];
+    return next(new ApiError(400, "Validation failed", errorMessages));
+  }
+};
+{{/if}}
+
+{{#if (eq validation "joi")}}
+export const validate = (schema) => (req, res, next) => {
+  const options = { abortEarly: false, allowUnknown: true, stripUnknown: true };
+  
+  // validate body, query or params if defined in the Joi schema object
+  const toValidate = {};
+  if (schema.body) toValidate.body = req.body;
+  if (schema.query) toValidate.query = req.query;
+  if (schema.params) toValidate.params = req.params;
+
+  const { value, error } = schema.validate(toValidate, options);
+
+  if (error) {
+    const errorMessages = error.details.map((detail) => detail.message);
+    return next(new ApiError(400, "Validation failed", errorMessages));
+  }
+
+  // Copy validated back to request
+  if (value.body) req.body = value.body;
+  if (value.query) req.query = value.query;
+  if (value.params) req.params = value.params;
+
+  return next();
+};
+{{/if}}

@@ -1,0 +1,72 @@
+import { Router } from 'express';
+import {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  getCurrentUser
+} from '../controllers/auth.controller';
+import { verifyJWT } from '../middlewares/auth.middleware';
+
+{{#if (eq validation "none")}}{{else}}
+import { validate } from '../middlewares/validation.middleware';
+{{/if}}
+
+{{#if (eq validation "zod")}}
+import { z } from 'zod';
+
+const registerSchema = z.object({
+  body: z.object({
+    username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username cannot exceed 20 characters"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(6, "Password must be at least 6 characters")
+  })
+});
+
+const loginSchema = z.object({
+  body: z.object({
+    username: z.string().optional(),
+    email: z.string().email("Invalid email address").optional(),
+    password: z.string().min(1, "Password is required")
+  })
+});
+{{/if}}
+
+{{#if (eq validation "joi")}}
+import Joi from 'joi';
+
+const registerSchema = Joi.object({
+  body: Joi.object({
+    username: Joi.string().min(3).max(20).required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required()
+  })
+});
+
+const loginSchema = Joi.object({
+  body: Joi.object({
+    username: Joi.string().optional(),
+    email: Joi.string().email().optional(),
+    password: Joi.string().required()
+  })
+});
+{{/if}}
+
+const router = Router();
+
+router.route('/register').post(
+  {{#if (eq validation "none")}}{{else}}validate(registerSchema),{{/if}}
+  registerUser
+);
+
+router.route('/login').post(
+  {{#if (eq validation "none")}}{{else}}validate(loginSchema),{{/if}}
+  loginUser
+);
+
+// Secured Routes
+router.route('/logout').post(verifyJWT, logoutUser);
+router.route('/refresh-token').post(refreshAccessToken);
+router.route('/me').get(verifyJWT, getCurrentUser);
+
+export default router;

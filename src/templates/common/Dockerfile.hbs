@@ -1,0 +1,39 @@
+# Stage 1: Base
+FROM node:20-alpine AS base
+WORKDIR /app
+COPY package*.json ./
+{{#if (eq database "postgresql")}}
+COPY prisma ./prisma/
+{{/if}}
+
+# Stage 2: Dependencies
+FROM base AS dependencies
+RUN npm ci
+
+# Stage 3: Build (Only for TypeScript)
+{{#if (eq language "typescript")}}
+FROM dependencies AS build
+COPY . .
+RUN npm run build
+{{/if}}
+
+# Stage 4: Production
+FROM base AS release
+ENV NODE_ENV=production
+RUN npm ci --only=production
+{{#if (eq database "postgresql")}}
+RUN npx prisma generate
+{{/if}}
+
+{{#if (eq language "typescript")}}
+COPY --from=build /app/dist ./dist
+{{else}}
+COPY . .
+{{/if}}
+
+EXPOSE 8000
+{{#if (eq language "typescript")}}
+CMD ["node", "dist/index.js"]
+{{else}}
+CMD ["node", "src/index.js"]
+{{/if}}

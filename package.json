@@ -1,0 +1,44 @@
+{
+  "name": "apibolt",
+  "version": "1.0.2",
+  "description": "Bootstrap a production-ready Node.js/Express backend in under 30 seconds",
+  "main": "dist/bin/index.js",
+  "type": "module",
+  "bin": {
+    "apibolt": "./dist/bin/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc && node scripts/copy-templates.js",
+    "dev": "ts-node-dev --respawn --transpile-only bin/index.ts",
+    "start": "node dist/bin/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "cli",
+    "express",
+    "nodejs",
+    "boilerplate",
+    "generator",
+    "backend"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@inquirer/prompts": "^5.0.4",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "handlebars": "^4.7.8",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}

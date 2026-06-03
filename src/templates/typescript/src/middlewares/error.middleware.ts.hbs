@@ -1,0 +1,38 @@
+import { Request, Response, NextFunction } from 'express';
+import { ApiError } from '../utils/ApiError';
+{{#if logging}}
+import { logger } from '../utils/logger';
+{{/if}}
+
+export const errorHandler = (
+  err: any,
+  req: Request,
+  res: Response,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _next: NextFunction
+) => {
+  let error = err;
+
+  if (!(error instanceof ApiError)) {
+    const statusCode = error.statusCode || (error.name === 'ValidationError' ? 400 : 500);
+    const message = error.message || 'Something went wrong';
+    error = new ApiError(statusCode, message, error?.errors || [], err.stack);
+  }
+
+  const response = {
+    statusCode: error.statusCode,
+    message: error.message,
+    success: error.success,
+    errors: error.errors,
+    ...(process.env.NODE_ENV === 'development' ? { stack: error.stack } : {})
+  };
+
+  {{#if logging}}
+  logger.error(`${req.method} ${req.path} - Status: ${error.statusCode} - Error: ${error.message}`);
+  if (error.stack && process.env.NODE_ENV === 'development') {
+    logger.error(error.stack);
+  }
+  {{/if}}
+
+  return res.status(error.statusCode).json(response);
+};

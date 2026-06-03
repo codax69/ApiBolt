@@ -1,0 +1,45 @@
+import { Request, Response, NextFunction } from 'express';
+import { ApiError } from '../utils/ApiError';
+
+{{#if (eq validation "zod")}}
+export const validate = (schema: any) => (req: Request, _res: Response, next: NextFunction) => {
+  try {
+    const parsed = schema.parse({
+      body: req.body,
+      query: req.query,
+      params: req.params,
+    });
+    if (parsed.body) req.body = parsed.body;
+    if (parsed.query) req.query = parsed.query;
+    if (parsed.params) req.params = parsed.params;
+    return next();
+  } catch (error: any) {
+    const errorMessages = error.errors ? error.errors.map((err: any) => `${err.path.join('.')}: ${err.message}`) : [error.message];
+    return next(new ApiError(400, "Validation failed", errorMessages));
+  }
+};
+{{/if}}
+
+{{#if (eq validation "joi")}}
+export const validate = (schema: any) => (req: Request, _res: Response, next: NextFunction) => {
+  const options = { abortEarly: false, allowUnknown: true, stripUnknown: true };
+  
+  const toValidate: any = {};
+  if (schema.body) toValidate.body = req.body;
+  if (schema.query) toValidate.query = req.query;
+  if (schema.params) toValidate.params = req.params;
+
+  const { value, error } = schema.validate(toValidate, options);
+
+  if (error) {
+    const errorMessages = error.details.map((detail: any) => detail.message);
+    return next(new ApiError(400, "Validation failed", errorMessages));
+  }
+
+  if (value.body) req.body = value.body;
+  if (value.query) req.query = value.query;
+  if (value.params) req.params = value.params;
+
+  return next();
+};
+{{/if}}

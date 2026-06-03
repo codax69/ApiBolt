@@ -1,0 +1,138 @@
+# {{projectName}}
+
+A production-ready Node.js/Express backend bootstrapped with `apibolt`.
+
+## Tech Stack
+
+- **Runtime:** Node.js (v20+)
+- **Framework:** Express.js
+- **Language:** {{language}}
+{{#if (eq database "mongodb")}}
+- **Database:** MongoDB (via Mongoose)
+{{/if}}
+{{#if (eq database "postgresql")}}
+- **Database:** PostgreSQL (via Prisma ORM)
+{{/if}}
+{{#if auth}}
+- **Authentication:** JSON Web Tokens (JWT) with Refresh Tokens
+{{/if}}
+{{#if (eq validation "zod")}}
+- **Validation:** Zod
+{{/if}}
+{{#if (eq validation "joi")}}
+- **Validation:** Joi
+{{/if}}
+{{#if logging}}
+- **Logging:** Winston (structured logging) & Morgan (HTTP logger)
+{{/if}}
+{{#if testing}}
+- **Testing:** Jest & Supertest
+{{/if}}
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v20 or higher)
+- npm, yarn, or pnpm
+{{#if (eq database "mongodb")}}
+- MongoDB instance running locally or via Atlas
+{{/if}}
+{{#if (eq database "postgresql")}}
+- PostgreSQL instance running locally or via Docker
+{{/if}}
+
+### Installation
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Copy the environment variables template and configure it:
+   ```bash
+   cp .env .env.local
+   ```
+   Modify `.env` as needed.
+
+{{#if (eq database "postgresql")}}
+3. Run Prisma migrations:
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+{{/if}}
+
+### Development
+
+Run the server in development mode with automatic reload:
+```bash
+npm run dev
+```
+
+The server should start running at `http://localhost:8000`.
+
+### Production Build
+
+Build the TypeScript/compiled output (if applicable):
+```bash
+npm run build
+```
+
+Start the production server:
+```bash
+npm start
+```
+
+{{#if testing}}
+### Running Tests
+
+Run the test suite:
+```bash
+npm test
+```
+{{/if}}
+
+## Folder Structure
+
+```
+├── src/
+│   ├── app.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}           # Express app setup & middleware registrations
+│   ├── index.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}         # Entry point (Server listener)
+{{#if (eq database "postgresql")}}
+│   ├── config/
+│   │   └── db.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}      # Prisma client export
+{{/if}}
+{{#if (eq database "mongodb")}}
+│   ├── config/
+│   │   └── db.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}      # Mongoose DB connection logic
+{{/if}}
+{{#if auth}}
+│   ├── controllers/
+│   │   └── auth.controller.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+│   ├── middlewares/
+│   │   └── auth.middleware.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+│   ├── models/
+│   │   └── user.model.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+│   ├── routes/
+│   │   └── auth.routes.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+{{/if}}
+│   ├── utils/
+│   │   ├── ApiError.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+│   │   ├── ApiResponse.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+│   │   └── asyncHandler.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+│   └── middlewares/
+│       ├── error.middleware.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+{{#if (eq validation "zod")}}
+│       └── validation.middleware.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+{{/if}}
+{{#if (eq validation "joi")}}
+│       └── validation.middleware.{{#if (eq language "typescript")}}ts{{else}}js{{/if}}
+{{/if}}
+{{#if (eq database "postgresql")}}
+├── prisma/
+│   └── schema.prisma    # Prisma schemas
+{{/if}}
+{{#if testing}}
+├── tests/               # Jest Integration / Unit tests
+{{/if}}
+```

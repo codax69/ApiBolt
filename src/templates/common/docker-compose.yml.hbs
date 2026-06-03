@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      target: release
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - NODE_ENV=production
+      {{#if (eq database "mongodb")}}
+      - MONGODB_URI=mongodb://db:27017/{{projectName}}
+      {{/if}}
+      {{#if (eq database "postgresql")}}
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/{{projectName}}?schema=public
+      {{/if}}
+    {{#if (eq database "none")}}{{else}}
+    depends_on:
+      - db
+    {{/if}}
+
+  {{#if (eq database "mongodb")}}
+  db:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
+  {{/if}}
+
+  {{#if (eq database "postgresql")}}
+  db:
+    image: postgres:alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB={{projectName}}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:
+  {{/if}}

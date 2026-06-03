@@ -1,0 +1,72 @@
+import request from 'supertest';
+import { app } from '../src/app';
+{{#if (eq database "postgresql")}}
+import { prisma } from '../src/config/db';
+{{/if}}
+{{#if (eq database "mongodb")}}
+import mongoose from 'mongoose';
+import { User } from '../src/models/user.model';
+{{/if}}
+
+describe('Auth Endpoints', () => {
+  const testUser = {
+    username: `testuser_${Date.now()}`,
+    email: `test_${Date.now()}@example.com`,
+    password: 'password123'
+  };
+
+  {{#if (eq database "postgresql")}}
+  beforeAll(async () => {
+    // Cleanup any existing test users
+    await prisma.user.deleteMany({
+      where: { email: { endsWith: '@example.com' } }
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.user.deleteMany({
+      where: { email: { endsWith: '@example.com' } }
+    });
+    await prisma.$disconnect();
+  });
+  {{/if}}
+
+  {{#if (eq database "mongodb")}}
+  beforeAll(async () => {
+    if (mongoose.connection.readyState === 1) {
+      await User.deleteMany({ email: /@example\.com$/ });
+    }
+  });
+
+  afterAll(async () => {
+    if (mongoose.connection.readyState === 1) {
+      await User.deleteMany({ email: /@example\.com$/ });
+      await mongoose.connection.close();
+    }
+  });
+  {{/if}}
+
+  it('POST /api/v1/auth/register should register a user', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/register')
+      .send(testUser);
+
+    expect(res.statusCode).toEqual(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.username).toEqual(testUser.username.toLowerCase());
+  });
+
+  it('POST /api/v1/auth/login should authenticate user and return tokens', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({
+        email: testUser.email,
+        password: testUser.password
+      });
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('accessToken');
+    expect(res.body.data).toHaveProperty('refreshToken');
+  });
+});

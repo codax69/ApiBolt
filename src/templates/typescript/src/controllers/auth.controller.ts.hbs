@@ -1,0 +1,242 @@
+import { Request, Response } from 'express';
+import { ApiError } from '../utils/ApiError';
+import { ApiResponse } from '../utils/ApiResponse';
+import { asyncHandler } from '../utils/asyncHandler';
+import jwt from 'jsonwebtoken';
+
+{{#if (eq database "mongodb")}}
+import { User } from '../models/user.model';
+{{/if}}
+{{#if (eq database "postgresql")}}
+import { prisma } from '../config/db';
+import {
+  hashPassword,
+  isPasswordCorrect,
+  generateAccessToken,
+  generateRefreshToken
+} from '../models/user.model';
+{{/if}}
+
+const generateAccessAndRefreshTokens = async (userId: string): Promise<{ accessToken: string; refreshToken: string }> => {
+  try {
+    let user: any;
+    {{#if (eq database "mongodb")}}
+    user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+    {{/if}}
+    {{#if (eq database "postgresql")}}
+    user = await prisma.user.findUnique({ where: { id: userId } });
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { refreshToken }
+    });
+    {{/if}}
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(500, "Something went wrong while generating tokens");
+  }
+};
+
+export const registerUser = asyncHandler(async (req: Request, res: Response) => {
+  const { username, email, password } = req.body;
+
+  if (!username || !email || !password) {
+    throw new ApiError(400, "Username, email, and password are required");
+  }
+
+  let existedUser: any;
+  {{#if (eq database "mongodb")}}
+  existedUser = await User.findOne({
+    $or: [{ username }, { email }]
+  });
+  {{/if}}
+  {{#if (eq database "postgresql")}}
+  existedUser = await prisma.user.findFirst({
+    where: {
+      OR: [{ username }, { email }]
+    }
+  });
+  {{/if}}
+
+  if (existedUser) {
+    throw new ApiError(409, "User with email or username already exists");
+  }
+
+  let user: any;
+  {{#if (eq database "mongodb")}}
+  user = await User.create({
+    username: username.toLowerCase(),
+    email,
+    password
+  });
+  {{/if}}
+  {{#if (eq database "postgresql")}}
+  const hashedPassword = await hashPassword(password);
+  user = await prisma.user.create({
+    data: {
+      username: username.toLowerCase(),
+      email,
+      password: hashedPassword
+    }
+  });
+  {{/if}}
+
+  let createdUser: any;
+  {{#if (eq database "mongodb")}}
+  createdUser = await User.findById(user._id).select("-password -refreshToken");
+  {{/if}}
+  {{#if (eq database "postgresql")}}
+  createdUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, username: true, email: true, role: true }
+  });
+  {{/if}}
+
+  if (!createdUser) {
+    throw new ApiError(500, "Something went wrong while registering the user");
+  }
+
+  return res.status(201).json(
+    new ApiResponse(201, createdUser, "User registered successfully")
+  );
+});
+
+export const loginUser = asyncHandler(async (req: Request, res: Response) => {
+  const { username, email, password } = req.body;
+
+  if (!username && !email) {
+    throw new ApiError(400, "Username or email is required");
+  }
+
+  let user: any;
+  {{#if (eq database "mongodb")}}
+  user = await User.findOne({
+    $or: [{ username }, { email }]
+  });
+  {{/if}}
+  {{#if (eq database "postgresql")}}
+  user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        username ? { username } : null,
+        email ? { email } : null
+      ].filter(Boolean) as any
+    }
+  });
+  {{/if}}
+
+  if (!user) {
+    throw new ApiError(404, "User does not exist");
+  }
+
+  let isPasswordValid: boolean;
+  {{#if (eq database "mongodb")}}
+  isPasswordValid = await user.isPasswordCorrect(password);
+  {{/if}}
+  {{#if (eq database "postgresql")}}
+  isPasswordValid = await isPasswordCorrect(password, user.password);
+  {{/if}}
+
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid user credentials");
+  }
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user.{{#if (eq database "mongodb")}}_id{{else}}id{{/if}});
+
+  let loggedInUser: any;
+  {{#if (eq database "mongodb")}}
+  loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+  {{/if}}
+  {{#if (eq database "postgresql")}}
+  loggedInUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, username: true, email: true, role: true }
+  });
+  {{/if}}
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { user: loggedInUser, accessToken, refreshToken },
+      "User logged in successfully"
+    )
+  );
+});
+
+export const logoutUser = asyncHandler(async (req: Request, res: Response) => {
+  {{#if (eq database "mongodb")}}
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $unset: {
+        refreshToken: 1
+      }
+    }
+  );
+  {{/if}}
+  {{#if (eq database "postgresql")}}
+  await prisma.user.update({
+    where: { id: req.user.id },
+    data: { refreshToken: null }
+  });
+  {{/if}}
+
+  return res.status(200).json(
+    new ApiResponse(200, {}, "User logged out successfully")
+  );
+});
+
+export const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
+  const incomingRefreshToken = req.body.refreshToken || req.header('Authorization')?.replace('Bearer ', '');
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Unauthorized: No refresh token provided");
+  }
+
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET!
+    ) as any;
+
+    let user: any;
+    {{#if (eq database "mongodb")}}
+    user = await User.findById(decodedToken._id);
+    {{/if}}
+    {{#if (eq database "postgresql")}}
+    user = await prisma.user.findUnique({ where: { id: decodedToken._id } });
+    {{/if}}
+
+    if (!user) {
+      throw new ApiError(401, "Invalid refresh token");
+    }
+
+    if (incomingRefreshToken !== user.refreshToken) {
+      throw new ApiError(401, "Refresh token is expired or used");
+    }
+
+    const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefreshTokens(user.{{#if (eq database "mongodb")}}_id{{else}}id{{/if}});
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        { accessToken, refreshToken: newRefreshToken },
+        "Access token refreshed successfully"
+      )
+    );
+  } catch (error: any) {
+    throw new ApiError(401, error?.message || "Invalid refresh token");
+  }
+});
+
+export const getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
+  return res.status(200).json(
+    new ApiResponse(200, req.user, "User details fetched successfully")
+  );
+});
